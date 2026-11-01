@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>#TOGETHERNINETY - Bier Book</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        rock: ['"Special Elite"', 'cursive'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        beerGold: '#f59e0b',
+                        darkBg: '#121212',
+                        cardBg: '#1e1e1e',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-darkBg text-gray-100 font-sans min-h-screen">
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 bg-black/50 sticky top-0 z-50 backdrop-blur">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h1 class="font-rock text-3xl tracking-wider text-beerGold flex items-center gap-2">
+                🍺 #TOGETHERNINETY <span class="text-xs font-sans text-gray-400 bg-gray-800 px-2 py-1 rounded">Bier Book</span>
+            </h1>
+            <button onclick="openModal()" class="bg-beerGold hover:bg-amber-600 text-black font-bold px-5 py-2 rounded-lg transition shadow-lg flex items-center gap-2">
+                ➕ Bier eintragen
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Search & Filter -->
+        <div class="mb-8 flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <input type="text" id="searchInput" placeholder="Suche nach Bier, Brauerei oder Schenkenden..." 
+                class="w-full sm:w-96 bg-cardBg border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-beerGold text-sm"
+                oninput="filterBeers()">
+            <div id="stats" class="text-sm text-gray-400">Lade Biere...</div>
+        </div>
+
+        <!-- Beer Grid -->
+        <div id="beerGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic Cards will be inserted here -->
+        </div>
+    </main>
+
+    <!-- Modal für neuen Eintrag -->
+    <div id="beerModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
+        Neues Bier eintragen...
+        <div class="bg-cardBg border border-gray-800 rounded-xl max-w-lg w-full p-6 relative my-8">
+            <h2 class="text-2xl font-rock text-beerGold mb-4">Neues Bier bewerten</h2>
+            <form id="beerForm" onsubmit="saveBeer(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Biername</label>
+                    <input type="text" id="beerName" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Brauerei / Stil</label>
+                        <input type="text" id="brewery" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Erhalten von</label>
+                        <input type="text" id="receivedFrom" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="z.B. Urs">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Wer bewertet?</label>
+                        <select id="reviewer" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                            <option value="Nico">Nico</option>
+                            <option value="Adi">Adi</option>
+                            <option value="Beide">Beide (Nico & Adi)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Punkte (1-5)</label>
+                        <input type="number" id="rating" min="1" max="5" step="0.5" value="4" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Kommentar / Notizen</label>
+                    <textarea id="comment" rows="3" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="Geschmack, Besonderheiten..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Foto der Flasche</label>
+                    <input type="file" id="beerImage" accept="image/*" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-beerGold file:text-black hover:file:bg-amber-600 cursor-pointer">
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm transition">Abbrechen</button>
+                    <button type="submit" id="submitBtn" class="px-5 py-2 rounded-lg bg-beerGold hover:bg-amber-600 text-black font-bold text-sm transition">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Logik -->
+    <script>
+        // Supabase Konfiguration (Hier deine Werte eintragen!)
+        const SUPABASE_URL = 'https://zmoqfpborgjtfnkwez.supabase.com';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtem1vcWZwYm9yZ2p0Zm5rd2V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NDkzOTQsImV4cCI6MjEwOTEyNTM5NH0._65cILLVxiD3jV8S4Jeh1Nydecdm8zdJ5qRg2idG_gU';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let allBeers = [];
+
+        document.addEventListener('DOMContentLoaded', fetchBeers);
+
+        async function fetchBeers() {
+            const { data, error } = await _supabase.from('beers').select('*').order('created_at', { ascending: false });
+            if (error) {
+                console.error('Fehler beim Laden:', error);
+                document.getElementById('beerGrid').innerHTML = '<p class="text-red-500 col-span-full text-center">Fehler beim Laden der Datenbank. Bitte Supabase-Schlüssel prüfen.</p>';
+                return;
+            }
+            allBeers = data;
+            renderBeers(allBeers);
+        }
+
+        function renderBeers(beers) {
+            const grid = document.getElementById('beerGrid');
+            document.getElementById('stats').innerText = `${beers.length} Biere in der Challenge`;
+            
+            if (beers.length === 0) {
+                grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-12">Noch keine Biere eingetragen. Trage das erste ein!</p>';
+                return;
+            }
+
+            grid.innerHTML = beers.map(beer => `
+                <div class="bg-cardBg border border-gray-800 rounded-xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-gray-700 transition">
+                    <div>
+                        ${beer.image_url ? `<img src="${beer.image_url}" class="w-full h-48 object-cover">` : '<div class="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-600 font-rock text-xl">#TOGETHERNINETY</div>'}
+                        <div class="p-5">
+                            <div class="flex justify-between items-start gap-2 mb-2">
+                                <div>
+                                    <h3 class="font-bold text-lg text-white">${beer.name}</h3>
+                                    <p class="text-xs text-beerGold">${beer.brewery}</p>
+                                </div>
+                                <span class="bg-amber-500/10 text-beerGold border border-amber-500/20 px-2.5 py-1 rounded-lg text-sm font-bold">⭐ ${beer.rating}</span>
+                            </div>
+                            <p class="text-sm text-gray-300 italic mb-4">"${beer.comment || 'Kein Kommentar'}"</p>
+                        </div>
+                    </div>
+                    <div class="px-5 py-3 bg-black/30 border-t border-gray-800/60 flex justify-between text-xs text-gray-400">
+                        <span>🎁 Von: <strong class="text-gray-200">${beer.received_from}</strong></span>
+                        <span>✍️ Bewertet von: <strong class="text-gray-200">${beer.reviewer}</strong></span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterBeers() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allBeers.filter(b => 
+                b.name.toLowerCase().includes(query) || 
+                b.brewery.toLowerCase().includes(query) || 
+                b.received_from.toLowerCase().includes(query)
+            );
+            renderBeers(filtered);
+        }
+
+        function openModal() { document.getElementById('beerModal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('beerModal').classList.add('hidden'); }
+
+        async function saveBeer(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = 'Speichere...';
+            btn.disabled = true;
+
+            const name = document.getElementById('beerName').value;
+            const brewery = document.getElementById('brewery').value;
+            const receivedFrom = document.getElementById('receivedFrom').value;
+            const reviewer = document.getElementById('reviewer').value;
+            const rating = parseFloat(document.getElementById('rating').value);
+            const comment = document.getElementById('comment').value;
+            const fileInput = document.getElementById('beerImage');
+
+            let imageUrl = '';
+
+            // Bild hochladen, falls ausgewählt
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileName = `${Date.now()}_${file.name}`;
+                const { data: uploadData, error: uploadError } = await _supabase.storage.from('beer-images').upload(fileName, file);
+                
+                if (!uploadError) {
+                    const { data: publicUrlData } = _supabase.storage.from('beer-images').getPublicUrl(fileName);
+                    imageUrl = publicUrlData.publicUrl;
+                }
+            }
+
+            // In DB speichern
+            const { error } = await _supabase.from('beers').insert([{
+                name, brewery, received_from: receivedFrom, reviewer, rating, comment, image_url: imageUrl
+            }]);
+
+            btn.innerText = 'Speichern';
+            btn.disabled = false;
+
+            if (error) {
+                alert('Fehler beim Speichern: ' + error.message);
+            } else {
+                closeModal();
+                document.getElementById('beerForm').reset();
+                fetchBeers();
+            }
+        }
+    </script>
+</body>
+</html>
