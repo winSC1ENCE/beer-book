@@ -46,7 +46,7 @@
     <main class="max-w-6xl mx-auto px-4 py-8">
         <!-- Search & Filter -->
         <div class="mb-8 flex flex-col sm:flex-row gap-4 justify-between items-center">
-            <input type="text" id="searchInput" placeholder="Suche nach Bier, Brauerei oder Schenkenden..." 
+            <input type="text" id="searchInput" placeholder="Suche nach Bier, Brauerei, Stil oder Tags..." 
                 class="w-full sm:w-96 bg-cardBg border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-beerGold text-sm"
                 oninput="filterBeers()">
             <div id="stats" class="text-sm text-gray-400">Lade Biere...</div>
@@ -60,8 +60,7 @@
 
     <!-- Modal für neuen Eintrag -->
     <div id="beerModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
-        Neues Bier eintragen...
-        <div class="bg-cardBg border border-gray-800 rounded-xl max-w-lg w-full p-6 relative my-8">
+        <div class="bg-cardBg border border-gray-800 rounded-xl max-w-lg w-full p-6 relative my-8 max-h-[90vh] overflow-y-auto">
             <h2 class="text-2xl font-rock text-beerGold mb-4">Neues Bier bewerten</h2>
             <form id="beerForm" onsubmit="saveBeer(event)" class="space-y-4">
                 <div>
@@ -71,14 +70,29 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Brauerei / Stil</label>
-                        <input type="text" id="brewery" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                        <input type="text" id="brewery" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="z.B. Brauerei / IPA">
                     </div>
+                    <div>
+                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Alkoholgehalt (% Vol.)</label>
+                        <input type="number" id="abv" step="0.1" min="0" max="20" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="z.B. 5.2">
+                    </div>
+                </div>
+
+                <!-- Tag Auswahl mit Suche & Mehrfachauswahl -->
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Stile & Aromen (Mehrfachauswahl)</label>
+                    <input type="text" id="tagSearch" placeholder="Tags durchsuchen..." oninput="filterTagList()" 
+                        class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-1.5 mb-2 focus:outline-none focus:border-beerGold text-xs">
+                    <div id="tagContainer" class="max-h-36 overflow-y-auto bg-black/30 border border-gray-800 rounded-lg p-2 grid grid-cols-2 gap-2 text-xs">
+                        <!-- Wird per JS befüllt -->
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Erhalten von</label>
                         <input type="text" id="receivedFrom" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="z.B. Urs">
                     </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Wer bewertet?</label>
                         <select id="reviewer" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
@@ -87,14 +101,16 @@
                             <option value="Beide">Beide (Nico & Adi)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Punkte (1-5)</label>
-                        <input type="number" id="rating" min="1" max="5" step="0.5" value="4" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
-                    </div>
                 </div>
+
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Punkte (1-5)</label>
+                    <input type="number" id="rating" min="1" max="5" step="0.5" value="4" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
+                </div>
+
                 <div>
                     <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Kommentar / Notizen</label>
-                    <textarea id="comment" rows="3" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="Geschmack, Besonderheiten..."></textarea>
+                    <textarea id="comment" rows="2" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="Geschmack, Besonderheiten..."></textarea>
                 </div>
                 <div>
                     <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Foto der Flasche</label>
@@ -110,14 +126,40 @@
 
     <!-- JavaScript Logik -->
     <script>
-        // Supabase Konfiguration (Hier deine Werte eintragen!)
+        // SUPABASE KONFIGURATION (Hier eintragen!)
         const SUPABASE_URL = 'https://zmoqfpborgjtfnkwez.supabase.com';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtem1vcWZwYm9yZ2p0Zm5rd2V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NDkzOTQsImV4cCI6MjEwOTEyNTM5NH0._65cILLVxiD3jV8S4Jeh1Nydecdm8zdJ5qRg2idG_gU';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        const availableTags = [
+            "Fruchtig", "Citrus", "Tropisch", "Blumig", "Malzig", "Karamell", 
+            "Röstig", "Schokolade", "Kaffee", "Hopfig", "Bitter", "Harzig", 
+            "Würzig", "Rauchig", "Säuerlich", "Beeren", "Vanille", "Holzfass", 
+            "Helles", "Pils", "IPA", "Pale Ale", "Stout", "Porter", "Weizen", "Belgian Ale", "Sour"
+        ];
+
         let allBeers = [];
 
-        document.addEventListener('DOMContentLoaded', fetchBeers);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBeers();
+            renderTagCheckboxes(availableTags);
+        });
+
+        function renderTagCheckboxes(tags) {
+            const container = document.getElementById('tagContainer');
+            container.innerHTML = tags.map(tag => `
+                <label class="flex items-center gap-2 cursor-pointer hover:text-beerGold transition p-1 bg-black/20 rounded">
+                    <input type="checkbox" name="beerTag" value="${tag}" class="rounded bg-black border-gray-700 text-beerGold focus:ring-0">
+                    <span class="truncate">${tag}</span>
+                </label>
+            `).join('');
+        }
+
+        function filterTagList() {
+            const query = document.getElementById('tagSearch').value.toLowerCase();
+            const filtered = availableTags.filter(t => t.toLowerCase().includes(query));
+            renderTagCheckboxes(filtered);
+        }
 
         async function fetchBeers() {
             const { data, error } = await _supabase.from('beers').select('*').order('created_at', { ascending: false });
@@ -139,27 +181,33 @@
                 return;
             }
 
-            grid.innerHTML = beers.map(beer => `
-                <div class="bg-cardBg border border-gray-800 rounded-xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-gray-700 transition">
-                    <div>
-                        ${beer.image_url ? `<img src="${beer.image_url}" class="w-full h-48 object-cover">` : '<div class="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-600 font-rock text-xl">#TOGETHERNINETY</div>'}
-                        <div class="p-5">
-                            <div class="flex justify-between items-start gap-2 mb-2">
-                                <div>
-                                    <h3 class="font-bold text-lg text-white">${beer.name}</h3>
-                                    <p class="text-xs text-beerGold">${beer.brewery}</p>
+            grid.innerHTML = beers.map(beer => {
+                const tagsArray = beer.tags ? beer.tags.split(',').map(t => `<span class="bg-gray-800 text-gray-300 px-2 py-0.5 rounded text-[10px]">${t.trim()}</span>`).join('') : '';
+                const abvText = beer.abv ? `${beer.abv}% Vol.` : '';
+
+                return `
+                    <div class="bg-cardBg border border-gray-800 rounded-xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-gray-700 transition">
+                        <div>
+                            ${beer.image_url ? `<img src="${beer.image_url}" class="w-full h-48 object-cover">` : '<div class="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-600 font-rock text-xl">#TOGETHERNINETY</div>'}
+                            <div class="p-5">
+                                <div class="flex justify-between items-start gap-2 mb-2">
+                                    <div>
+                                        <h3 class="font-bold text-lg text-white">${beer.name}</h3>
+                                        <p class="text-xs text-beerGold">${beer.brewery} ${abvText ? `• <span class="text-gray-400">${abvText}</span>` : ''}</p>
+                                    </div>
+                                    <span class="bg-amber-500/10 text-beerGold border border-amber-500/20 px-2.5 py-1 rounded-lg text-sm font-bold">⭐ ${beer.rating}</span>
                                 </div>
-                                <span class="bg-amber-500/10 text-beerGold border border-amber-500/20 px-2.5 py-1 rounded-lg text-sm font-bold">⭐ ${beer.rating}</span>
+                                ${tagsArray ? `<div class="flex flex-wrap gap-1 mb-3">${tagsArray}</div>` : ''}
+                                <p class="text-sm text-gray-300 italic mb-4">"${beer.comment || 'Kein Kommentar'}"</p>
                             </div>
-                            <p class="text-sm text-gray-300 italic mb-4">"${beer.comment || 'Kein Kommentar'}"</p>
+                        </div>
+                        <div class="px-5 py-3 bg-black/30 border-t border-gray-800/60 flex justify-between text-xs text-gray-400">
+                            <span>🎁 Von: <strong class="text-gray-200">${beer.received_from}</strong></span>
+                            <span>✍️ Bewertet von: <strong class="text-gray-200">${beer.reviewer}</strong></span>
                         </div>
                     </div>
-                    <div class="px-5 py-3 bg-black/30 border-t border-gray-800/60 flex justify-between text-xs text-gray-400">
-                        <span>🎁 Von: <strong class="text-gray-200">${beer.received_from}</strong></span>
-                        <span>✍️ Bewertet von: <strong class="text-gray-200">${beer.reviewer}</strong></span>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function filterBeers() {
@@ -167,7 +215,8 @@
             const filtered = allBeers.filter(b => 
                 b.name.toLowerCase().includes(query) || 
                 b.brewery.toLowerCase().includes(query) || 
-                b.received_from.toLowerCase().includes(query)
+                b.received_from.toLowerCase().includes(query) ||
+                (b.tags && b.tags.toLowerCase().includes(query))
             );
             renderBeers(filtered);
         }
@@ -183,15 +232,18 @@
 
             const name = document.getElementById('beerName').value;
             const brewery = document.getElementById('brewery').value;
+            const abv = document.getElementById('abv').value ? parseFloat(document.getElementById('abv').value) : null;
             const receivedFrom = document.getElementById('receivedFrom').value;
             const reviewer = document.getElementById('reviewer').value;
             const rating = parseFloat(document.getElementById('rating').value);
             const comment = document.getElementById('comment').value;
-            const fileInput = document.getElementById('beerImage');
+            
+            // Ausgewählte Checkboxen einsammeln
+            const selectedTags = Array.from(document.querySelectorAll('input[name="beerTag"]:checked')).map(cb => cb.value).join(', ');
 
+            const fileInput = document.getElementById('beerImage');
             let imageUrl = '';
 
-            // Bild hochladen, falls ausgewählt
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileName = `${Date.now()}_${file.name}`;
@@ -203,9 +255,8 @@
                 }
             }
 
-            // In DB speichern
             const { error } = await _supabase.from('beers').insert([{
-                name, brewery, received_from: receivedFrom, reviewer, rating, comment, image_url: imageUrl
+                name, brewery, abv, tags: selectedTags, received_from: receivedFrom, reviewer, rating, comment, image_url: imageUrl
             }]);
 
             btn.innerText = 'Speichern';
@@ -216,6 +267,7 @@
             } else {
                 closeModal();
                 document.getElementById('beerForm').reset();
+                renderTagCheckboxes(availableTags);
                 fetchBeers();
             }
         }
