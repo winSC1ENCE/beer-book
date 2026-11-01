@@ -36,7 +36,7 @@
             <h1 class="font-rock text-3xl tracking-wider text-beerGold flex items-center gap-2">
                 🍺 #TOGETHERNINETY <span class="text-xs font-sans text-gray-400 bg-gray-800 px-2 py-1 rounded">Bier Book</span>
             </h1>
-            <button onclick="openModal()" class="bg-beerGold hover:bg-amber-600 text-black font-bold px-5 py-2 rounded-lg transition shadow-lg flex items-center gap-2">
+            <button onclick="openModalForCreate()" class="bg-beerGold hover:bg-amber-600 text-black font-bold px-5 py-2 rounded-lg transition shadow-lg flex items-center gap-2">
                 ➕ Bier eintragen
             </button>
         </div>
@@ -54,15 +54,17 @@
 
         <!-- Beer Grid -->
         <div id="beerGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Dynamic Cards will be inserted here -->
+            <!-- Dynamic Cards -->
         </div>
     </main>
 
-    <!-- Modal für neuen Eintrag -->
+    <!-- Modal für Erstellen & Bearbeiten -->
     <div id="beerModal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div class="bg-cardBg border border-gray-800 rounded-xl max-w-lg w-full p-6 relative my-8 max-h-[90vh] overflow-y-auto">
-            <h2 class="text-2xl font-rock text-beerGold mb-4">Neues Bier bewerten</h2>
+            <h2 id="modalTitle" class="text-2xl font-rock text-beerGold mb-4">Bier bewerten</h2>
             <form id="beerForm" onsubmit="saveBeer(event)" class="space-y-4">
+                <input type="hidden" id="editBeerId" value="">
+
                 <div>
                     <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Biername</label>
                     <input type="text" id="beerName" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
@@ -70,7 +72,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Brauerei / Stil</label>
-                        <input type="text" id="brewery" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="z.B. Brauerei / IPA">
+                        <input type="text" id="brewery" required class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm">
                     </div>
                     <div>
                         <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Alkoholgehalt (% Vol.)</label>
@@ -78,13 +80,13 @@
                     </div>
                 </div>
 
-                <!-- Tag Auswahl mit Suche & Mehrfachauswahl -->
+                <!-- Tag Auswahl -->
                 <div>
                     <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Stile & Aromen (Mehrfachauswahl)</label>
                     <input type="text" id="tagSearch" placeholder="Tags durchsuchen..." oninput="filterTagList()" 
                         class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-1.5 mb-2 focus:outline-none focus:border-beerGold text-xs">
                     <div id="tagContainer" class="max-h-36 overflow-y-auto bg-black/30 border border-gray-800 rounded-lg p-2 grid grid-cols-2 gap-2 text-xs">
-                        <!-- Wird per JS befüllt -->
+                        <!-- Per JS befüllt -->
                     </div>
                 </div>
 
@@ -113,7 +115,7 @@
                     <textarea id="comment" rows="2" class="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 focus:border-beerGold focus:outline-none text-sm" placeholder="Geschmack, Besonderheiten..."></textarea>
                 </div>
                 <div>
-                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Foto der Flasche</label>
+                    <label class="block text-xs uppercase text-gray-400 font-semibold mb-1">Foto der Flasche (Optional)</label>
                     <input type="file" id="beerImage" accept="image/*" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-beerGold file:text-black hover:file:bg-amber-600 cursor-pointer">
                 </div>
                 <div class="flex justify-end gap-3 pt-4">
@@ -124,9 +126,8 @@
         </div>
     </div>
 
-    <!-- JavaScript Logik -->
+    <!-- JS Logik -->
     <script>
-        // SUPABASE KONFIGURATION (Hier eintragen!)
         const SUPABASE_URL = 'https://smzmoqfpborgjtfnkwez.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtem1vcWZwYm9yZ2p0Zm5rd2V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NDkzOTQsImV4cCI6MjEwOTEyNTM5NH0._65cILLVxiD3jV8S4Jeh1Nydecdm8zdJ5qRg2idG_gU';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -145,27 +146,31 @@
             renderTagCheckboxes(availableTags);
         });
 
-        function renderTagCheckboxes(tags) {
+        function renderTagCheckboxes(tags, checkedTags = []) {
             const container = document.getElementById('tagContainer');
-            container.innerHTML = tags.map(tag => `
-                <label class="flex items-center gap-2 cursor-pointer hover:text-beerGold transition p-1 bg-black/20 rounded">
-                    <input type="checkbox" name="beerTag" value="${tag}" class="rounded bg-black border-gray-700 text-beerGold focus:ring-0">
-                    <span class="truncate">${tag}</span>
-                </label>
-            `).join('');
+            container.innerHTML = tags.map(tag => {
+                const isChecked = checkedTags.includes(tag) ? 'checked' : '';
+                return `
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-beerGold transition p-1 bg-black/20 rounded">
+                        <input type="checkbox" name="beerTag" value="${tag}" ${isChecked} class="rounded bg-black border-gray-700 text-beerGold focus:ring-0">
+                        <span class="truncate">${tag}</span>
+                    </label>
+                `;
+            }).join('');
         }
 
         function filterTagList() {
             const query = document.getElementById('tagSearch').value.toLowerCase();
             const filtered = availableTags.filter(t => t.toLowerCase().includes(query));
-            renderTagCheckboxes(filtered);
+            const selected = Array.from(document.querySelectorAll('input[name="beerTag"]:checked')).map(cb => cb.value);
+            renderTagCheckboxes(filtered, selected);
         }
 
         async function fetchBeers() {
             const { data, error } = await _supabase.from('beers').select('*').order('created_at', { ascending: false });
             if (error) {
                 console.error('Fehler beim Laden:', error);
-                document.getElementById('beerGrid').innerHTML = '<p class="text-red-500 col-span-full text-center">Fehler beim Laden der Datenbank. Bitte Supabase-Schlüssel prüfen.</p>';
+                document.getElementById('beerGrid').innerHTML = '<p class="text-red-500 col-span-full text-center">Fehler beim Laden der Daten.</p>';
                 return;
             }
             allBeers = data;
@@ -177,7 +182,7 @@
             document.getElementById('stats').innerText = `${beers.length} Biere in der Challenge`;
             
             if (beers.length === 0) {
-                grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-12">Noch keine Biere eingetragen. Trage das erste ein!</p>';
+                grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-12">Noch keine Biere eingetragen.</p>';
                 return;
             }
 
@@ -186,8 +191,14 @@
                 const abvText = beer.abv ? `${beer.abv}% Vol.` : '';
 
                 return `
-                    <div class="bg-cardBg border border-gray-800 rounded-xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-gray-700 transition">
+                    <div class="bg-cardBg border border-gray-800 rounded-xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-gray-700 transition relative group">
                         <div>
+                            <!-- Action Buttons oben rechts -->
+                            <div class="absolute top-2 right-2 flex gap-1 z-10 opacity-90 group-hover:opacity-100 transition">
+                                <button onclick="openModalForEdit(${beer.id})" class="bg-black/70 hover:bg-beerGold hover:text-black text-white p-2 rounded-lg text-xs backdrop-blur" title="Bearbeiten">✏️</button>
+                                <button onclick="deleteBeer(${beer.id})" class="bg-black/70 hover:bg-red-600 text-white p-2 rounded-lg text-xs backdrop-blur" title="Löschen">🗑️</button>
+                            </div>
+
                             ${beer.image_url ? `<img src="${beer.image_url}" class="w-full h-48 object-cover">` : '<div class="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-600 font-rock text-xl">#TOGETHERNINETY</div>'}
                             <div class="p-5">
                                 <div class="flex justify-between items-start gap-2 mb-2">
@@ -221,8 +232,45 @@
             renderBeers(filtered);
         }
 
-        function openModal() { document.getElementById('beerModal').classList.remove('hidden'); }
+        function openModalForCreate() {
+            document.getElementById('modalTitle').innerText = 'Neues Bier bewerten';
+            document.getElementById('editBeerId').value = '';
+            document.getElementById('beerForm').reset();
+            renderTagCheckboxes(availableTags, []);
+            document.getElementById('beerModal').classList.remove('hidden');
+        }
+
+        function openModalForEdit(id) {
+            const beer = allBeers.find(b => b.id === id);
+            if (!beer) return;
+
+            document.getElementById('modalTitle').innerText = 'Bier bearbeiten';
+            document.getElementById('editBeerId').value = beer.id;
+            document.getElementById('beerName').value = beer.name;
+            document.getElementById('brewery').value = beer.brewery;
+            document.getElementById('abv').value = beer.abv || '';
+            document.getElementById('receivedFrom').value = beer.received_from;
+            document.getElementById('reviewer').value = beer.reviewer;
+            document.getElementById('rating').value = beer.rating;
+            document.getElementById('comment').value = beer.comment || '';
+
+            const currentTags = beer.tags ? beer.tags.split(',').map(t => t.trim()) : [];
+            renderTagCheckboxes(availableTags, currentTags);
+
+            document.getElementById('beerModal').classList.remove('hidden');
+        }
+
         function closeModal() { document.getElementById('beerModal').classList.add('hidden'); }
+
+        async function deleteBeer(id) {
+            if (!confirm('Möchtest du dieses Bier wirklich löschen?')) return;
+            const { error } = await _supabase.from('beers').delete().eq('id', id);
+            if (error) {
+                alert('Fehler beim Löschen: ' + error.message);
+            } else {
+                fetchBeers();
+            }
+        }
 
         async function saveBeer(e) {
             e.preventDefault();
@@ -230,6 +278,7 @@
             btn.innerText = 'Speichere...';
             btn.disabled = true;
 
+            const editId = document.getElementById('editBeerId').value;
             const name = document.getElementById('beerName').value;
             const brewery = document.getElementById('brewery').value;
             const abv = document.getElementById('abv').value ? parseFloat(document.getElementById('abv').value) : null;
@@ -238,12 +287,12 @@
             const rating = parseFloat(document.getElementById('rating').value);
             const comment = document.getElementById('comment').value;
             
-            // Ausgewählte Checkboxen einsammeln
             const selectedTags = Array.from(document.querySelectorAll('input[name="beerTag"]:checked')).map(cb => cb.value).join(', ');
 
             const fileInput = document.getElementById('beerImage');
-            let imageUrl = '';
+            let imageUrl = null;
 
+            // Falls ein neues Bild gewählt wurde, hochladen
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileName = `${Date.now()}_${file.name}`;
@@ -255,19 +304,32 @@
                 }
             }
 
-            const { error } = await _supabase.from('beers').insert([{
-                name, brewery, abv, tags: selectedTags, received_from: receivedFrom, reviewer, rating, comment, image_url: imageUrl
-            }]);
+            const payload = {
+                name, brewery, abv, tags: selectedTags, received_from: receivedFrom, reviewer, rating, comment
+            };
+
+            // Nur wenn ein neues Bild hochgeladen wurde, die URL überschreiben
+            if (imageUrl) {
+                payload.image_url = imageUrl;
+            }
+
+            let response;
+            if (editId) {
+                // UPDATE bestehendes Bier
+                response = await _supabase.from('beers').update(payload).eq('id', editId);
+            } else {
+                // INSERT neues Bier
+                response = await _supabase.from('beers').insert([payload]);
+            }
 
             btn.innerText = 'Speichern';
             btn.disabled = false;
 
-            if (error) {
-                alert('Fehler beim Speichern: ' + error.message);
+            if (response.error) {
+                alert('Fehler beim Speichern: ' + response.error.message);
             } else {
                 closeModal();
                 document.getElementById('beerForm').reset();
-                renderTagCheckboxes(availableTags);
                 fetchBeers();
             }
         }
